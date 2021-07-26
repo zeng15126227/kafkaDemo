@@ -2,15 +2,11 @@
 import org.apache.kafka.clients.consumer.*;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.Properties;
+import java.util.*;
 
-public class Consumer {
+public class ConsumerByPartitions {
     public static void main(String[] args) {
         consumer();
     }
@@ -25,15 +21,15 @@ public class Consumer {
         //earliest、latest、none
         p.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         //自动提交，在consumer发生问题时，可能导致数据丢失/重复消费
-        p.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
-        p.setProperty(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, "5");
+        //p.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
+        //p.setProperty(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, "5");
         //最大拉取条数
         //p.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "10");
 
         KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(p);
 
         //分区自动负载均衡
-        consumer.subscribe(Arrays.asList("20210721"), new ConsumerRebalanceListener() {
+        consumer.subscribe(Arrays.asList("20210724_2"), new ConsumerRebalanceListener() {
             @Override
             public void onPartitionsRevoked(Collection<TopicPartition> collection) {
                 System.out.println("失去分区");
@@ -59,16 +55,21 @@ public class Consumer {
 
             if(!records.isEmpty()){
                 System.out.println("++++++++++" + records.count() + "+++++++++++");
+                //按照分区消费数据
+                Set<TopicPartition> partitions = records.partitions();
+                for (TopicPartition partition : partitions) {
+                    List<ConsumerRecord<String, String>> recordList = records.records(partition);
+                    Iterator<ConsumerRecord<String, String>> iterator = recordList.iterator();
+                    while (iterator.hasNext()) {
+                        ConsumerRecord<String, String> record = iterator.next();
+                        int partition1 = record.partition();
+                        long offset = record.offset();
+                        System.out.println("key:" + record.key() +
+                                " val:" + record.value() +
+                                " partition:" + partition1 +
+                                " offset:" + offset);
 
-                Iterator<ConsumerRecord<String, String>> iterator = records.iterator();
-                while (iterator.hasNext()) {
-                    ConsumerRecord<String, String> record = iterator.next();
-                    int partition = record.partition();
-                    long offset = record.offset();
-                    System.out.println("key:" + record.key() +
-                            " val:" + record.value() +
-                            " partition:" + partition +
-                            " offset:" + offset);
+                    }
                 }
             }
 
